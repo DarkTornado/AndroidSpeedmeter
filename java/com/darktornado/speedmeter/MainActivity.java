@@ -2,7 +2,10 @@ package com.darktornado.speedmeter;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Context;
 import android.content.pm.PackageManager;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -14,6 +17,7 @@ import android.widget.Toast;
 public class MainActivity extends Activity {
 
     private final String[] permissions = {Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION};
+    private LocationListener listener;
     private TextView txt;
 
     @Override
@@ -42,7 +46,7 @@ public class MainActivity extends Activity {
 
         if (Build.VERSION.SDK_INT > 23) {
             if (checkPermission(permissions)) {
-//            startLocationListener();
+                startLocationListener();
             } else {
                 requestPermissions(permissions, 5);
             }
@@ -54,7 +58,7 @@ public class MainActivity extends Activity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode != 5) return;
         if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-//            startLocationListener();
+            startLocationListener();
         } else {
             Toast.makeText(this, "위치 권한이 없으면 속도 측정 불가능", Toast.LENGTH_SHORT).show();
             finish();
@@ -67,6 +71,35 @@ public class MainActivity extends Activity {
             if (checkSelfPermission(permission) == PackageManager.PERMISSION_DENIED) return false;
         }
         return true;
+    }
+
+    private void startLocationListener() {
+        if (!checkPermission(permissions)) return;
+        LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        listener = location -> {
+            float speed = location.getSpeed();
+            txt.setText(round(speed) + " m/s\n" + round(speed * 3.6) + " km/h\n" +
+                    round(speed * 1.944) + " knot\n" + round(speed * 2.237) + " mph");
+        };
+        lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, listener);
+        lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, listener);
+    }
+
+    private void stopLocationListener() {
+        if (listener == null) return;
+        LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        lm.removeUpdates(listener);
+    }
+
+    private String round(double num) {
+        num = (double)Math.round(num * 100) / 100;
+        return String.valueOf(num);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        stopLocationListener();
     }
 
     private int dip2px(int dips) {
